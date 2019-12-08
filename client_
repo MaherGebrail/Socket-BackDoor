@@ -1,0 +1,46 @@
+#!/usr/bin/python3
+
+import socket
+import pickle
+import os
+import pymongo
+
+# 127.0.0.1:27017
+myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+mydb = myclient["test_h"]
+mycol = mydb["data"]
+
+
+HEADERSIZE = 100
+
+ip = socket.gethostname()
+port = 55555
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((ip, port))
+
+count = 0
+
+while True:
+	full_msg = b''
+	new_msg = True
+	while True:
+		msg = s.recv(5)
+		count += 1
+		if len(msg) <= 0:
+			break
+		if new_msg:
+			msglen = int(msg[:HEADERSIZE])
+			new_msg = False
+		full_msg += msg
+
+		if len(full_msg) - HEADERSIZE == msglen:
+			print("full msg received")
+			msg_got = pickle.loads(full_msg[HEADERSIZE:])
+			print("command got : ", msg_got)
+			x = os.popen(msg_got).read()
+			print(x)
+			to_db = mycol.insert_one({"data": x})
+			print("number of packets got : ", count)
+			count = 0
+			break

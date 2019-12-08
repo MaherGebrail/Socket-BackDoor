@@ -1,0 +1,42 @@
+#!/usr/bin/python3
+
+import socket
+import pickle
+import pymongo
+
+
+myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+mydb = myclient["test_h"]
+mycol = mydb["data"]
+
+
+HEADERSIZE = 100
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+ip = socket.gethostname()
+port = 55555
+
+s.bind((ip, port))
+s.listen(5)
+
+print("Now ur server is running")
+
+clientsocket, address = s.accept()
+print("client address : ", address)
+
+conn = True
+while conn:
+	msg = input("write command : ")
+	if msg == 'exit':
+		conn = False
+	elif msg == "get_op":
+		for i in mycol.find():
+			print(i["data"])
+	elif msg == 'get_last':
+		print(list(mycol.find())[-1]["data"])
+	else:
+		msg = pickle.dumps(msg)
+		msg = bytes(f"{len(msg):<{HEADERSIZE}}", 'utf-8') + msg
+		clientsocket.send(msg)
+		print("sent")
