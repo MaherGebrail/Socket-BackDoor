@@ -80,4 +80,4 @@ class ServerTcp:
 		return
 
 
-ServerTcp()
+ServerTcp(port=55555)
