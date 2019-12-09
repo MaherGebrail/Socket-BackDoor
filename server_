@@ -9,16 +9,16 @@ import threading
 
 class ServerTcp:
 
-	def __init__(self):
-		self.myclient = pymongo.MongoClient("mongodb://localhost:27017/")
+	def __init__(self, ip_server=socket.gethostname(), port=60555, db_link='localhost'):
+		self.myclient = pymongo.MongoClient(f"mongodb://{db_link}:27017/")
 		self.mydb = self.myclient["test_h"]
 		self.mycol = self.mydb["data"]
 		self.headerSIZE = 100
 
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-		self.ip = socket.gethostname()
-		self.port = 55555
+		self.ip = ip_server
+		self.port = port
 
 		self.s.bind((self.ip, self.port))
 		self.s.listen(5)
@@ -29,6 +29,7 @@ class ServerTcp:
 		# self.connection_open()
 
 	def start_conn(self):
+		""" Function that waits for client connection """
 		print("[ Waiting For Client ]")
 		self.client_socket, self.address = self.s.accept()
 		print("client address : ", self.address)
@@ -36,6 +37,7 @@ class ServerTcp:
 		self.connection_open()
 
 	def check_conn(self):
+		""" it checks if the connection i disconnected from returning feedback to the db """
 		while True:
 			time.sleep(0.25)
 			check_last = list(self.mycol.find())
@@ -49,8 +51,9 @@ class ServerTcp:
 				pass
 
 	def connection_open(self):
-		connection = True
+		"""it starts the threading for checking the connection , while sending the packets to the client"""
 
+		connection = True
 		test = threading.Thread(target=self.check_conn)
 		test.daemon = True
 		test.start()
