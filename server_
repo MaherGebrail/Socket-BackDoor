@@ -9,75 +9,83 @@ import threading
 
 class ServerTcp:
 
-	def __init__(self, ip_server=socket.gethostname(), port=60555, db_link='localhost'):
-		self.myclient = pymongo.MongoClient(f"mongodb://{db_link}:27017/")
-		self.mydb = self.myclient["test_h"]
-		self.mycol = self.mydb["data"]
-		self.headerSIZE = 100
+    def __init__(self, ip_server=socket.gethostname(), port=60555, db_link='mongodb://localhost:27017/'):
+        try:
+            self.myclient = pymongo.MongoClient(db_link)
+            self.mydb = self.myclient["test_h"]
+            self.mycol = self.mydb["data"]
+            self.headerSIZE = 100
 
-		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-		self.ip = ip_server
-		self.port = port
+            self.ip = ip_server
+            self.port = port
 
-		self.s.bind((self.ip, self.port))
-		self.s.listen(5)
-		print("Now ur sever is running")
-		self.client_socket = ''
-		self.address = ''
-		self.start_conn()
-		# self.connection_open()
+            self.s.bind((self.ip, self.port))
+        except:
+            print("Error in connection")
+            return
+        self.s.listen(5)
+        print("Now ur sever is running")
+        self.client_socket = ''
+        self.address = ''
+        self.start_conn()
 
-	def start_conn(self):
-		""" Function that waits for client connection """
-		print("[ Waiting For Client ]")
-		self.client_socket, self.address = self.s.accept()
-		print("client address : ", self.address)
-		# print("client socket", self.client_socket)
-		self.connection_open()
+    # self.connection_open()
 
-	def check_conn(self):
-		""" it checks if the connection i disconnected from returning feedback to the db """
-		while True:
-			time.sleep(0.25)
-			check_last = list(self.mycol.find())
-			if check_last[-1]["code"] == 1:
-				if check_last[-2]["code"] == 1:
-					print("Network Not Reached")
-					global connection
-					connection = False
-					self.start_conn()
-			else:
-				pass
+    def start_conn(self):
+        """ Function that waits for client connection """
+        print("[ Waiting For Client ]")
+        self.client_socket, self.address = self.s.accept()
+        print("client address : ", self.address)
+        # print("client socket", self.client_socket)
+        self.connection_open()
 
-	def connection_open(self):
-		"""it starts the threading for checking the connection , while sending the packets to the client"""
+    def check_conn(self):
+        """ it checks if the connection i disconnected from returning feedback to the db """
+        while True:
+            time.sleep(0.25)
+            check_last = list(self.mycol.find())
+            if check_last[-1]["code"] == 1:
+                if check_last[-2]["code"] == 1:
+                    print("Network Not Reached")
+                    global connection
+                    connection = False
+                    self.start_conn()
+            else:
+                pass
 
-		connection = True
-		test = threading.Thread(target=self.check_conn)
-		test.daemon = True
-		test.start()
+    def connection_open(self):
+        """it starts the threading for checking the connection , while sending the packets to the client"""
 
-		while connection:
-			msg = input("write command : ")
-			if msg == 'exit':
-				connection = False
-			elif msg == "get_op":
-				for i in self.mycol.find():
-					print(i["data"])
-			elif msg == 'get_last':
-				print(list(self.mycol.find())[-1]["data"])
-			else:
-				msg = pickle.dumps(msg)
-				msg = bytes(f"{len(msg):<{self.headerSIZE}}", 'utf-8') + msg
-				try:
-					self.client_socket.send(msg)
-					self.mycol.insert_one({"data": pickle.loads(msg[self.headerSIZE:]), "code": 1})
-					print("sent")
-				except Exception:
-					print("msg sending broken")
-					self.start_conn()
-		return
+        connection = True
+        test = threading.Thread(target=self.check_conn)
+        test.daemon = True
+        test.start()
+
+        while connection:
+            msg = input("write command : ")
+            if msg == 'exit':
+                connection = False
+            elif msg == "get_op":
+                for i in self.mycol.find():
+                    print(i["data"])
+            elif msg == 'get_last':
+                print(list(self.mycol.find())[-1]["data"])
+            else:
+                msg = pickle.dumps(msg)
+                msg = bytes(f"{len(msg):<{self.headerSIZE}}", 'utf-8') + msg
+                try:
+                    self.client_socket.send(msg)
+                    self.mycol.insert_one({"data": pickle.loads(msg[self.headerSIZE:]), "code": 1})
+                    print("sent")
+                except Exception:
+                    print("msg sending broken")
+                    self.start_conn()
+
+        return
 
 
-ServerTcp(port=55555)
+while True:
+    ServerTcp(port=50000)
+    time.sleep(2)

