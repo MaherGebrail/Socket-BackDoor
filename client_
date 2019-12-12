@@ -27,6 +27,7 @@ def test_connection(ip):
             conn = False
             return
 
+# def time_out_conn(conn)
 
 def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:27017/"):
     """
@@ -61,13 +62,13 @@ def start(ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:2701
         connection.start()
 
         count = 0
+        s.settimeout(60)
         while conn:
 
             full_msg = b''
             new_msg = True
             while True:
                 try:
-                    s.settimeout(60)
                     msg = s.recv(5)
                 except:
                     s.close()

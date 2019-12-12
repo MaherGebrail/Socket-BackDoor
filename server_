@@ -35,6 +35,8 @@ class ServerTcp:
 
     def start_conn(self):
         """ Function that waits for client connection """
+        global connection
+        connection = False
         print("\n[ Waiting For Client ]\n")
         self.client_socket, self.address = self.s.accept()
         print("client address : ", self.address)
@@ -49,8 +51,7 @@ class ServerTcp:
             if check_last[-1]["code"] == 1:
                 if check_last[-2]["code"] == 1:
                     print("Network Not Reached\n")
-                    # global connection
-                    # connection = False
+
                     self.start_conn()
             else:
                 pass
