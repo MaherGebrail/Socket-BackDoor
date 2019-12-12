@@ -20,11 +20,11 @@ class ServerTcp:
 
             self.ip = ip_server
             self.port = port
-
             self.s.bind((self.ip, self.port))
         except:
             print("Error in connection")
             return
+        self.connection = True
         self.s.listen(5)
         print("Now ur sever is running")
         self.client_socket = ''
@@ -50,24 +50,25 @@ class ServerTcp:
             check_last = list(self.mycol.find())
             if check_last[-1]["code"] == 1:
                 if check_last[-2]["code"] == 1:
-                    print("Network Not Reached\n")
-
-                    self.start_conn()
+                    print("\nNetwork Not Reached\n")
+                    self.connection = False
+                    break
+                    # self.start_conn()
             else:
                 pass
 
     def connection_open(self):
         """it starts the threading for checking the connection , while sending the packets to the client"""
 
-        connection = True
+        self.connection = True
         test = threading.Thread(target=self.check_conn)
         test.daemon = True
         test.start()
 
-        while connection:
+        while self.connection == True:
             msg = input("write command : ")
             if msg == 'exit':
-                connection = False
+                self.connection = False
             elif msg == "get_op":
                 for i in self.mycol.find():
                     print(i["data"])
@@ -80,7 +81,7 @@ class ServerTcp:
                 try:
                     self.client_socket.send(msg)
                     self.mycol.insert_one({"data": pickle.loads(msg[self.headerSIZE:]), "code": 1})
-                    print("[[sent]]")
+                    print("\n[[sent]]\n")
                 except Exception:
                     print("msg sending broken")
                     self.start_conn()
