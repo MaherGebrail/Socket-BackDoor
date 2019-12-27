@@ -33,8 +33,7 @@ class ServerTcp:
 
     def start_conn(self):
         """ Function that waits for client connection """
-        global connection
-        connection = False
+        
         print("\n[ Waiting For Client ]\n")
         self.client_socket, self.address = self.s.accept()
         print("client address : ", self.address)
