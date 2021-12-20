@@ -50,7 +50,7 @@ class Client:
         while True:  # to keep receiving
             try:
                 msg_got = self.s.recv(1024).decode().strip()
-                if msg_got == "CHECKING CONNNECTION":  # This message only sent to check the connection
+                if msg_got == "CHECKING CONNECTION":  # This message only sent to check the connection
                     continue
 
                 if msg_got.startswith("cd "):  # easier to chdir
